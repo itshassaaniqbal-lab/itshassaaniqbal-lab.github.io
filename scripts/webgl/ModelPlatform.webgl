@@ -1,0 +1,36 @@
+import { AdditiveBlending } from "three";
+
+// Precompiled separately so the server renderer never evaluates WebGL code.
+export function ModelPlatform() {
+  return (
+    <group position={[0, -1.82, 0]}>
+      <mesh receiveShadow position={[0, -0.12, 0]}>
+        <cylinderGeometry args={[1.22, 1.38, 0.2, 96]} />
+        <meshPhysicalMaterial
+          color="#090811"
+          metalness={0.82}
+          roughness={0.18}
+          clearcoat={1}
+          clearcoatRoughness={0.12}
+        />
+      </mesh>
+
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[1.14, 0.025, 18, 128]} />
+        <meshBasicMaterial color="#a855f7" toneMapped={false} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
+        <ringGeometry args={[0.72, 1.08, 96]} />
+        <meshBasicMaterial
+          color="#7c3aed"
+          opacity={0.14}
+          transparent
+          depthWrite={false}
+          blending={AdditiveBlending}
+          toneMapped={false}
+        />
+      </mesh>
+      <pointLight color="#8b5cf6" intensity={10} distance={4.5} position={[0, 0.3, 0]} />
+    </group>
+  );
+}

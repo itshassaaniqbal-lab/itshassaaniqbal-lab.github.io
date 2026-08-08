@@ -1,0 +1,330 @@
+"use client";
+
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { AdaptiveDpr } from "@react-three/drei/core/AdaptiveDpr.js";
+import { AdaptiveEvents } from "@react-three/drei/core/AdaptiveEvents.js";
+import { ContactShadows } from "@react-three/drei/core/ContactShadows.js";
+import { Environment } from "@react-three/drei/core/Environment.js";
+import { PerformanceMonitor } from "@react-three/drei/core/PerformanceMonitor.js";
+import { useAnimations } from "@react-three/drei/core/useAnimations.js";
+import { useGLTF } from "@react-three/drei/core/Gltf.js";
+import { useProgress } from "@react-three/drei/core/Progress.js";
+import { Html } from "@react-three/drei/web/Html.js";
+import gsap from "gsap";
+import {
+  ACESFilmicToneMapping,
+  AdditiveBlending,
+  AnimationClip,
+  BufferAttribute,
+  BufferGeometry,
+  Group,
+  LoopRepeat,
+  Mesh,
+  Points,
+  SRGBColorSpace,
+} from "three";
+import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
+import {
+  beginModelDrag,
+  createModelRotationController,
+  endModelDrag,
+  getSmoothedModelRotation,
+  updateModelDrag,
+} from "./MouseController.webgl";
+import { ModelLighting } from "./ModelLighting.webgl";
+import { ModelPlatform } from "./ModelPlatform.webgl";
+
+const MODEL_URL = "/models/robotic-girl.glb";
+
+type RobotGLTF = GLTF & {
+  animations: AnimationClip[];
+  scene: Group;
+};
+
+function ModelLoader() {
+  const { progress } = useProgress();
+
+  return (
+    <Html center>
+      <div className="expertise-model-loader" role="status" aria-live="polite">
+        <span>{Math.round(progress)}%</span>
+        <small>Loading experience</small>
+      </div>
+    </Html>
+  );
+}
+
+function AmbientModelParticles() {
+  const pointsRef = useRef<Points>(null);
+
+  const geometry = useMemo(() => {
+    const particleCount = 180;
+    const positions = new Float32Array(particleCount * 3);
+
+    for (let index = 0; index < particleCount; index += 1) {
+      const angle = index * 2.399963;
+      const radius = 1.35 + ((index * 37) % 100) / 62;
+      const height = -1.55 + ((index * 53) % 100) / 25;
+      positions[index * 3] = Math.cos(angle) * radius;
+      positions[index * 3 + 1] = height;
+      positions[index * 3 + 2] = Math.sin(angle) * radius * 0.48;
+    }
+
+    const bufferGeometry = new BufferGeometry();
+    bufferGeometry.setAttribute("position", new BufferAttribute(positions, 3));
+    return bufferGeometry;
+  }, []);
+
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  useFrame((_, delta) => {
+    if (pointsRef.current) {
+      pointsRef.current.rotation.y += delta * 0.035;
+    }
+  });
+
+  return (
+    <points ref={pointsRef} geometry={geometry} frustumCulled>
+      <pointsMaterial
+        color="#c084fc"
+        size={0.022}
+        sizeAttenuation
+        transparent
+        opacity={0.62}
+        depthWrite={false}
+        blending={AdditiveBlending}
+        toneMapped={false}
+      />
+    </points>
+  );
+}
+
+function RoboticGirlModel() {
+  const { gl } = useThree();
+  const interactionRef = useRef<Group>(null);
+  const floatRef = useRef<Group>(null);
+  const animationRootRef = useRef<Group>(null);
+  const interactionEnabledRef = useRef(true);
+  const rotationControllerRef = useRef(createModelRotationController());
+
+  const gltf = useGLTF(MODEL_URL, true, true) as unknown as RobotGLTF;
+  const modelScene = useMemo(() => {
+    const clonedScene = clone(gltf.scene) as Group;
+
+    clonedScene.traverse((child) => {
+      if (child instanceof Mesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        // Animated skinned meshes keep bind-pose bounds after optimization.
+        // Disabling culling prevents the character from disappearing while
+        // its bones move outside those stale bounds.
+        child.frustumCulled = false;
+      }
+    });
+
+    return clonedScene;
+  }, [gltf.scene]);
+
+  const { actions } = useAnimations(gltf.animations, animationRootRef);
+  const idleClipName = useMemo(() => {
+    const idleClip = gltf.animations.find((clip) => /idle/i.test(clip.name));
+    return idleClip?.name ?? gltf.animations[0]?.name ?? null;
+  }, [gltf.animations]);
+  const hasAnimationClips = gltf.animations.length > 0;
+
+  useEffect(() => {
+    const action = idleClipName ? actions[idleClipName] : undefined;
+    if (!action) return;
+
+    action.reset().setLoop(LoopRepeat, Number.POSITIVE_INFINITY).fadeIn(0.65).play();
+
+    return () => {
+      action.fadeOut(0.3);
+    };
+  }, [actions, idleClipName]);
+
+  useEffect(() => {
+    const coarsePointer = window.matchMedia("(pointer: coarse)");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    const updateInteractionPreference = () => {
+      interactionEnabledRef.current = !coarsePointer.matches && !reducedMotion.matches;
+    };
+
+    updateInteractionPreference();
+    coarsePointer.addEventListener("change", updateInteractionPreference);
+    reducedMotion.addEventListener("change", updateInteractionPreference);
+
+    return () => {
+      coarsePointer.removeEventListener("change", updateInteractionPreference);
+      reducedMotion.removeEventListener("change", updateInteractionPreference);
+    };
+  }, []);
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const controller = rotationControllerRef.current;
+    const previousCursor = canvas.style.cursor;
+    const previousTouchAction = canvas.style.touchAction;
+
+    canvas.style.cursor = interactionEnabledRef.current ? "grab" : "default";
+    canvas.style.touchAction = "none";
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!interactionEnabledRef.current || event.button !== 0) return;
+
+      beginModelDrag(controller, event.pointerId, event);
+      canvas.setPointerCapture(event.pointerId);
+      canvas.style.cursor = "grabbing";
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!controller.isDragging || controller.pointerId !== event.pointerId) return;
+      updateModelDrag(controller, event);
+    };
+
+    const finishPointerInteraction = (event: PointerEvent) => {
+      if (controller.pointerId !== event.pointerId) return;
+
+      endModelDrag(controller);
+      if (canvas.hasPointerCapture(event.pointerId)) {
+        canvas.releasePointerCapture(event.pointerId);
+      }
+      canvas.style.cursor = interactionEnabledRef.current ? "grab" : "default";
+    };
+
+    canvas.addEventListener("pointerdown", handlePointerDown);
+    canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointerup", finishPointerInteraction);
+    canvas.addEventListener("pointercancel", finishPointerInteraction);
+
+    return () => {
+      canvas.removeEventListener("pointerdown", handlePointerDown);
+      canvas.removeEventListener("pointermove", handlePointerMove);
+      canvas.removeEventListener("pointerup", finishPointerInteraction);
+      canvas.removeEventListener("pointercancel", finishPointerInteraction);
+      canvas.style.cursor = previousCursor;
+      canvas.style.touchAction = previousTouchAction;
+    };
+  }, [gl]);
+
+  useEffect(() => {
+    const floatingGroup = floatRef.current;
+    if (!floatingGroup) return;
+
+    const context = gsap.context(() => {
+      gsap.to(floatingGroup.position, {
+        y: 0.14,
+        duration: 3.8,
+        ease: "sine.inOut",
+        repeat: -1,
+        yoyo: true,
+      });
+      gsap.to(floatingGroup.rotation, {
+        y: 0.035,
+        duration: 5.2,
+        ease: "sine.inOut",
+        repeat: -1,
+        yoyo: true,
+      });
+
+      if (!hasAnimationClips) {
+        gsap.to(floatingGroup.scale, {
+          x: 1.012,
+          y: 1.02,
+          z: 1.012,
+          duration: 2.9,
+          ease: "sine.inOut",
+          repeat: -1,
+          yoyo: true,
+        });
+      }
+    }, floatingGroup);
+
+    return () => context.revert();
+  }, [hasAnimationClips]);
+
+  useFrame((state, delta) => {
+    const interactionGroup = interactionRef.current;
+    if (!interactionGroup) return;
+
+    const rotation = getSmoothedModelRotation({
+      controller: rotationControllerRef.current,
+      current: interactionGroup.rotation,
+      delta,
+      enabled: interactionEnabledRef.current,
+      pointer: state.pointer,
+    });
+
+    interactionGroup.rotation.x = rotation.x;
+    interactionGroup.rotation.y = rotation.y;
+  });
+
+  return (
+    <group ref={interactionRef}>
+      <group ref={floatRef}>
+        <group ref={animationRootRef} position={[0, -1.78, 0]} scale={1.08}>
+          <primitive object={modelScene} />
+        </group>
+      </group>
+    </group>
+  );
+}
+
+function ModelScene() {
+  return (
+    <>
+      <ModelLighting />
+      <Environment preset="city" background={false} environmentIntensity={0.34} />
+      <AmbientModelParticles />
+      <RoboticGirlModel />
+      <ModelPlatform />
+      <ContactShadows
+        position={[0, -1.84, 0]}
+        opacity={0.5}
+        scale={6}
+        blur={2.8}
+        far={4.5}
+        color="#4c1d95"
+        frames={60}
+      />
+    </>
+  );
+}
+
+export function InteractiveModel() {
+  const [dpr, setDpr] = useState(1.65);
+
+  return (
+    <div className="expertise-canvas" role="img" aria-label="Interactive 3D robotic girl model">
+      <Canvas
+        camera={{ fov: 34, near: 0.1, far: 100, position: [0, 0.15, 6.2] }}
+        dpr={dpr}
+        gl={{
+          alpha: true,
+          antialias: true,
+          outputColorSpace: SRGBColorSpace,
+          powerPreference: "high-performance",
+          toneMapping: ACESFilmicToneMapping,
+          toneMappingExposure: 1.08,
+        }}
+        shadows
+      >
+        <PerformanceMonitor
+          bounds={(refreshRate) => (refreshRate > 90 ? [45, 90] : [30, 58])}
+          onDecline={() => setDpr(1)}
+          onIncline={() => setDpr(1.75)}
+        />
+        <AdaptiveDpr pixelated={false} />
+        <AdaptiveEvents />
+        <Suspense fallback={<ModelLoader />}>
+          <ModelScene />
+        </Suspense>
+      </Canvas>
+    </div>
+  );
+}
+
+useGLTF.preload(MODEL_URL, true, true);

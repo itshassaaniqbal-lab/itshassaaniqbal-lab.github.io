@@ -1,0 +1,6 @@
+.openai
+.wrangler
+.webgl-build
+Model 3d
+scripts/webgl/node_modules
+*.log

@@ -1,0 +1,136 @@
+import { MathUtils, type Vector2 } from "three";
+
+// Precompiled separately so the server renderer never evaluates WebGL code.
+export interface ModelRotation {
+  x: number;
+  y: number;
+}
+
+export interface ModelRotationController {
+  isDragging: boolean;
+  pointerId: number | null;
+  lastClientX: number;
+  lastClientY: number;
+  targetPitch: number;
+  targetYaw: number;
+  pitchVelocity: number;
+  yawVelocity: number;
+}
+
+interface RotationOptions {
+  controller: ModelRotationController;
+  current: ModelRotation;
+  delta: number;
+  enabled: boolean;
+  pointer: Vector2;
+  smoothing?: number;
+}
+
+interface DragPosition {
+  clientX: number;
+  clientY: number;
+}
+
+const MAX_PITCH = 0.32;
+const DRAG_SENSITIVITY = 0.0085;
+
+export function createModelRotationController(): ModelRotationController {
+  return {
+    isDragging: false,
+    pointerId: null,
+    lastClientX: 0,
+    lastClientY: 0,
+    targetPitch: 0,
+    targetYaw: 0,
+    pitchVelocity: 0,
+    yawVelocity: 0,
+  };
+}
+
+export function beginModelDrag(
+  controller: ModelRotationController,
+  pointerId: number,
+  position: DragPosition,
+): void {
+  controller.isDragging = true;
+  controller.pointerId = pointerId;
+  controller.lastClientX = position.clientX;
+  controller.lastClientY = position.clientY;
+  controller.pitchVelocity = 0;
+  controller.yawVelocity = 0;
+}
+
+export function updateModelDrag(
+  controller: ModelRotationController,
+  position: DragPosition,
+): void {
+  if (!controller.isDragging) return;
+
+  const deltaX = position.clientX - controller.lastClientX;
+  const deltaY = position.clientY - controller.lastClientY;
+  const yawDelta = deltaX * DRAG_SENSITIVITY;
+  const pitchDelta = deltaY * DRAG_SENSITIVITY;
+
+  // Yaw intentionally remains unbounded so the model can rotate through 360°
+  // repeatedly. Pitch is constrained to keep the presentation cinematic.
+  controller.targetYaw += yawDelta;
+  controller.targetPitch = MathUtils.clamp(
+    controller.targetPitch + pitchDelta,
+    -MAX_PITCH,
+    MAX_PITCH,
+  );
+  controller.yawVelocity = yawDelta;
+  controller.pitchVelocity = pitchDelta;
+  controller.lastClientX = position.clientX;
+  controller.lastClientY = position.clientY;
+}
+
+export function endModelDrag(controller: ModelRotationController): void {
+  controller.isDragging = false;
+  controller.pointerId = null;
+}
+
+/**
+ * Advances drag inertia and returns a damped rotation without causing React
+ * renders. Horizontal rotation is unlimited; the vertical angle settles back
+ * toward center after release while subtle cursor parallax stays active.
+ */
+export function getSmoothedModelRotation({
+  controller,
+  current,
+  delta,
+  enabled,
+  pointer,
+  smoothing = 8.5,
+}: RotationOptions): ModelRotation {
+  if (!enabled) {
+    controller.isDragging = false;
+    controller.pointerId = null;
+    controller.targetPitch = MathUtils.damp(controller.targetPitch, 0, 5, delta);
+    controller.targetYaw = MathUtils.damp(controller.targetYaw, 0, 5, delta);
+  } else if (!controller.isDragging) {
+    const frameScale = Math.min(delta * 60, 1.5);
+    controller.targetYaw += controller.yawVelocity * frameScale;
+    controller.targetPitch = MathUtils.clamp(
+      controller.targetPitch + controller.pitchVelocity * frameScale,
+      -MAX_PITCH,
+      MAX_PITCH,
+    );
+    controller.yawVelocity = MathUtils.damp(controller.yawVelocity, 0, 8, delta);
+    controller.pitchVelocity = MathUtils.damp(controller.pitchVelocity, 0, 9, delta);
+    controller.targetPitch = MathUtils.damp(controller.targetPitch, 0, 1.5, delta);
+  }
+
+  const hoverPitch = enabled && !controller.isDragging ? -pointer.y * 0.035 : 0;
+  const hoverYaw = enabled && !controller.isDragging ? pointer.x * 0.055 : 0;
+
+  return {
+    x: MathUtils.damp(
+      current.x,
+      controller.targetPitch + hoverPitch,
+      smoothing,
+      delta,
+    ),
+    y: MathUtils.damp(current.y, controller.targetYaw + hoverYaw, smoothing, delta),
+  };
+}

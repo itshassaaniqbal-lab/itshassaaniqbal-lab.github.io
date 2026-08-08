@@ -1,0 +1,35 @@
+// Precompiled separately so the server renderer never evaluates WebGL code.
+export function ModelLighting() {
+  return (
+    <>
+      <ambientLight intensity={0.42} color="#c7d2fe" />
+      <hemisphereLight args={["#8b5cf6", "#05030a", 0.8]} />
+
+      <directionalLight
+        castShadow
+        color="#ffffff"
+        intensity={1.5}
+        position={[2.4, 4.5, 4.2]}
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
+        shadow-bias={-0.00015}
+      />
+
+      <spotLight
+        color="#8b5cf6"
+        intensity={28}
+        angle={0.42}
+        penumbra={0.9}
+        position={[-3.7, 2.8, 2.2]}
+      />
+      <spotLight
+        color="#3b82f6"
+        intensity={22}
+        angle={0.5}
+        penumbra={1}
+        position={[3.4, 1.7, 2.7]}
+      />
+      <pointLight color="#a855f7" intensity={8} distance={6} position={[0, 0.4, -2]} />
+    </>
+  );
+}
