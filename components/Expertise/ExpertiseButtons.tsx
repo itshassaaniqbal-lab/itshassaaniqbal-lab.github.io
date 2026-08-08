@@ -4,7 +4,7 @@ export function ExpertiseButtons() {
       <a
         className="expertise-button expertise-button-primary"
         data-magnetic-button
-        href="mailto:hello@codensite.com"
+        href="mailto:codeandsite@gmail.com"
       >
         <span>Let&apos;s Build Together</span>
         <span aria-hidden="true">+</span>

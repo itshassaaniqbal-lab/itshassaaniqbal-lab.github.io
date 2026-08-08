@@ -37,7 +37,7 @@ export default function Home() {
           ))}
         </nav>
 
-        <a className="project-link" href="mailto:hello@codensite.com">
+        <a className="project-link" href="mailto:codeandsite@gmail.com">
           <span>Start project</span>
           <span aria-hidden="true">{OUTBOUND_ARROW}</span>
         </a>
@@ -72,7 +72,7 @@ export default function Home() {
           </p>
 
           <div className="hero-actions">
-            <a className="primary-action" href="mailto:hello@codensite.com">
+            <a className="primary-action" href="mailto:codeandsite@gmail.com">
               Build with us
               <span aria-hidden="true">{OUTBOUND_ARROW}</span>
             </a>

@@ -111,9 +111,9 @@ export function ContactSection() {
           </div>
 
           <div className="contact-direct">
-            <a href="mailto:hello@codensite.com">
+            <a href="mailto:codeandsite@gmail.com">
               <span>Email</span>
-              <strong>hello@codensite.com</strong>
+              <strong>Codeandsite@gmail.com</strong>
             </a>
             <a
               href="https://wa.me/923202729210"
