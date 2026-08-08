@@ -1,24 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useSectionReveal } from "@/hooks/useSectionReveal";
 
 interface ReviewCardData {
-  id: number;
-  code: string;
-  discipline: string;
-  symbol: string;
-  review: string;
-  source: string;
-  accent: "violet" | "blue" | "magenta" | "cyan" | "indigo";
+  readonly id: number;
+  readonly image: string;
+  readonly imageAlt: string;
+  readonly review: string;
+  readonly source: string;
+  readonly accent: "violet" | "blue" | "magenta" | "cyan" | "indigo";
 }
 
 const REVIEW_CARDS: readonly ReviewCardData[] = [
   {
     id: 1,
-    code: "WEB",
-    discipline: "Digital Experience",
-    symbol: "</>",
+    image: "/review-cards/queen-clubs.webp",
+    imageAlt: "Luxury black and gold Queen of Clubs playing card",
     review:
       "Clear communication, sharp execution and a final product that feels far beyond the original brief.",
     source: "Luxury Brand Team",
@@ -26,9 +25,8 @@ const REVIEW_CARDS: readonly ReviewCardData[] = [
   },
   {
     id: 2,
-    code: "AI",
-    discipline: "Intelligent Systems",
-    symbol: "AI",
+    image: "/review-cards/jack-clubs.webp",
+    imageAlt: "Luxury black, red and gold Jack of Clubs playing card",
     review:
       "They transformed a complex workflow into an experience our team could understand and use immediately.",
     source: "SaaS Product Team",
@@ -36,9 +34,8 @@ const REVIEW_CARDS: readonly ReviewCardData[] = [
   },
   {
     id: 3,
-    code: "APP",
-    discipline: "Product Engineering",
-    symbol: "01",
+    image: "/review-cards/king-diamonds.webp",
+    imageAlt: "Luxury black, red and gold King of Diamonds playing card",
     review:
       "Every interaction feels considered. The product is fast, elegant and genuinely enjoyable to use.",
     source: "Technology Founder",
@@ -46,9 +43,8 @@ const REVIEW_CARDS: readonly ReviewCardData[] = [
   },
   {
     id: 4,
-    code: "UX",
-    discipline: "Design Direction",
-    symbol: "UX",
+    image: "/review-cards/king-hearts.webp",
+    imageAlt: "Luxury black, red and gold King of Hearts playing card",
     review:
       "Code N Site brought strategy, design and engineering together without losing speed or attention to detail.",
     source: "Venture Studio",
@@ -56,15 +52,14 @@ const REVIEW_CARDS: readonly ReviewCardData[] = [
   },
   {
     id: 5,
-    code: "SYS",
-    discipline: "Automation Platform",
-    symbol: "∞",
+    image: "/review-cards/joker.webp",
+    imageAlt: "Luxury black, red and gold Joker playing card",
     review:
       "A dependable creative partner with the rare ability to make ambitious ideas feel simple and achievable.",
     source: "Operations Director",
     accent: "indigo",
   },
-] as const;
+];
 
 export function ReviewsSection() {
   const [flippedCardId, setFlippedCardId] = useState<number | null>(null);
@@ -108,15 +103,21 @@ export function ReviewsSection() {
               >
                 <span className="review-card__inner">
                   <span className="review-card__face review-card__front">
-                    <span className="review-card__corner">
-                      <strong>{card.id.toString().padStart(2, "0")}</strong>
-                      <small>{card.code}</small>
+                    <Image
+                      className="review-card__image"
+                      src={card.image}
+                      alt={card.imageAlt}
+                      width={720}
+                      height={1047}
+                      loading="lazy"
+                      decoding="async"
+                      draggable={false}
+                    />
+                    <span className="review-card__image-shade" aria-hidden="true" />
+                    <span className="review-card__front-hint">
+                      <small>Client story / 0{card.id}</small>
+                      <strong>Tap to reveal</strong>
                     </span>
-                    <span className="review-card__symbol" aria-hidden="true">
-                      {card.symbol}
-                    </span>
-                    <span className="review-card__discipline">{card.discipline}</span>
-                    <span className="review-card__brand">Code N Site</span>
                   </span>
 
                   <span className="review-card__face review-card__back">

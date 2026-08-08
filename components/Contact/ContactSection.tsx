@@ -2,8 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 import type { IconType } from "react-icons";
-import { FaBehance, FaInstagram, FaLinkedinIn } from "react-icons/fa";
-import { FaXTwitter } from "react-icons/fa6";
+import { FaFacebookF, FaInstagram } from "react-icons/fa";
 import { useSectionReveal } from "@/hooks/useSectionReveal";
 
 const WHATSAPP_NUMBER = "923202729210";
@@ -11,14 +10,23 @@ const WHATSAPP_NUMBER = "923202729210";
 interface SocialChannel {
   readonly icon: IconType;
   readonly label: string;
-  readonly className: "instagram" | "linkedin" | "behance" | "x";
+  readonly href: string;
+  readonly className: "instagram" | "facebook";
 }
 
 const SOCIAL_CHANNELS: readonly SocialChannel[] = [
-  { icon: FaInstagram, label: "Instagram", className: "instagram" },
-  { icon: FaLinkedinIn, label: "LinkedIn", className: "linkedin" },
-  { icon: FaBehance, label: "Behance", className: "behance" },
-  { icon: FaXTwitter, label: "X / Twitter", className: "x" },
+  {
+    icon: FaInstagram,
+    label: "Instagram",
+    href: "https://www.instagram.com/codeandsites",
+    className: "instagram",
+  },
+  {
+    icon: FaFacebookF,
+    label: "Facebook",
+    href: "https://www.facebook.com/codeandsites",
+    className: "facebook",
+  },
 ];
 
 function getFormValue(formData: FormData, key: string): string {
@@ -87,7 +95,9 @@ export function ContactSection() {
                   <a
                     key={channel.label}
                     className={`social-icon-3d social-icon-3d--${channel.className}`}
-                    href="#contact-form"
+                    href={channel.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     aria-label={`Connect with Code N Site via ${channel.label}`}
                   >
                     <span className="social-icon-3d__cube" aria-hidden="true">
